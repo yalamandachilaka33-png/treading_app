@@ -21,10 +21,13 @@ def analyze(candles):
     macd_trend = "Bullish" if df['MACD'].iloc[-1] > df['MACD_Signal'].iloc[-1] else "Bearish"
 
     # 3. Bollinger Bands
-    bb = ta.bbands(df['Close'], length=20, std=2)
-    df['BBL'] = bb['BBL_20_2.0']
-    df['BBU'] = bb['BBU_20_2.0']
-    current_price = df['Close'].iloc[-1]
+bb = ta.bbands(df['Close'], length=20, std=2)
+# Dynamically find the column names to avoid KeyError
+bbl_col = [col for col in bb.columns if col.startswith('BBL')][0]
+bbu_col = [col for col in bb.columns if col.startswith('BBU')][0]
+df['BBL'] = bb[bbl_col]
+df['BBU'] = bb[bbu_col]
+current_price = df['Close'].iloc[-1]
     
     if current_price < df['BBL'].iloc[-1]:
         bb_status = "Below Lower Band (Oversold)"
