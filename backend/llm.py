@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 from config import GEMINI_API_KEY
 import json
 
@@ -6,9 +6,8 @@ def decide(asset, tf, data):
     if "error" in data:
         return {"signal": "NEUTRAL", "reason": "Not enough data to analyze."}
 
-    # Configure Gemini API
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    # Configure Gemini API with the new SDK
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
     prompt = f"""
     You are an expert binary options trader. Analyze the following data for {asset} on {tf} timeframe:
@@ -29,7 +28,10 @@ def decide(asset, tf, data):
     """
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         result_text = response.text.strip().replace('```json', '').replace('```', '')
         result_json = json.loads(result_text)
         return result_json
