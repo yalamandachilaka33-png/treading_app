@@ -38,7 +38,7 @@ async def signal(asset: str = Query("EURUSD_otc"), tf: str = Query("1m")):
         period = TF[tf]
         raw = await api.get_candles(asset, period, period * 260)
         data = analyze(raw)
-        verdict = await decide(asset, tf, data)
+        verdict = decide(asset, tf, data)
     except Exception as e:
         raise HTTPException(502, f"{type(e).__name__}: {e}")
     return {"asset": asset, "tf": tf, **verdict, "indicators": data}
