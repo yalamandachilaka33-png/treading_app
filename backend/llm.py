@@ -8,7 +8,7 @@ def decide(asset, tf, data):
 
     # Configure Gemini API
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
 
     prompt = f"""
     You are an expert binary options trader. Analyze the following data for {asset} on {tf} timeframe:
@@ -35,4 +35,4 @@ def decide(asset, tf, data):
         return result_json
     except Exception as e:
         print(f"LLM Error: {e}")
-        return {"signal": "NEUTRAL", "reason": "AI analysis failed. Please try again."}
+        return {"signal": "NEUTRAL", "reason": str(e)}
