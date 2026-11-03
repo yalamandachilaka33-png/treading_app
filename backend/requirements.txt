@@ -2,7 +2,7 @@ fastapi
 uvicorn
 pandas
 pandas_ta
-google-genai
+requests
 BinaryOptionsToolsV2
 numba
 llvmlite
