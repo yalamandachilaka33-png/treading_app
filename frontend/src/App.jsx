@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 // NOTE: Replace this with your Render Backend URL once it is deployed
-const API_URL = "http://localhost:8000"; 
+const API_URL = "https://treading-app-1.onrender.com";
 
 const TFS = { "1m": 60, "2m": 120, "3m": 180, "5m": 300 };
 const PAIRS = [
