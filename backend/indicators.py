@@ -20,20 +20,20 @@ def analyze(candles):
     df['MACD_Signal'] = macd['MACDs_12_26_9']
     macd_trend = "Bullish" if df['MACD'].iloc[-1] > df['MACD_Signal'].iloc[-1] else "Bearish"
 
-    # 3. Bollinger Bands (Manual calculation to avoid KeyError)
-df['SMA_20'] = df['Close'].rolling(window=20).mean()
-df['STD_20'] = df['Close'].rolling(window=20).std()
-df['BBL'] = df['SMA_20'] - (2 * df['STD_20'])
-df['BBU'] = df['SMA_20'] + (2 * df['STD_20'])
-
-current_price = df['Close'].iloc[-1]
-
-if current_price < df['BBL'].iloc[-1]:
-    bb_status = "Below Lower Band (Oversold)"
-elif current_price > df['BBU'].iloc[-1]:
-    bb_status = "Above Upper Band (Overbought)"
-else:
-    bb_status = "Inside Bands"
+    # 3. Bollinger Bands (Manual calculation)
+    df['SMA_20'] = df['Close'].rolling(window=20).mean()
+    df['STD_20'] = df['Close'].rolling(window=20).std()
+    df['BBL'] = df['SMA_20'] - (2 * df['STD_20'])
+    df['BBU'] = df['SMA_20'] + (2 * df['STD_20'])
+    
+    current_price = df['Close'].iloc[-1]
+    
+    if current_price < df['BBL'].iloc[-1]:
+        bb_status = "Below Lower Band (Oversold)"
+    elif current_price > df['BBU'].iloc[-1]:
+        bb_status = "Above Upper Band (Overbought)"
+    else:
+        bb_status = "Inside Bands"
 
     # 4. Support & Resistance
     recent_high = df['High'].tail(20).max()
