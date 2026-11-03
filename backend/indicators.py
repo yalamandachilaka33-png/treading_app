@@ -1,5 +1,4 @@
 import pandas as pd
-import pandas_ta as ta
 
 def analyze(candles):
     if not candles or len(candles) < 50:
@@ -10,17 +9,23 @@ def analyze(candles):
     if 'open' in df.columns:
         df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True)
 
-    # 1. RSI
-    df['RSI'] = ta.rsi(df['Close'], length=14)
+    # 1. RSI (Manual Calculation)
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
     current_rsi = df['RSI'].iloc[-1]
 
-    # 2. MACD
-    macd = ta.macd(df['Close'], fast=12, slow=26, signal=9)
-    df['MACD'] = macd['MACD_12_26_9']
-    df['MACD_Signal'] = macd['MACDs_12_26_9']
+    # 2. MACD (Manual Calculation)
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp1 - exp2
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
     macd_trend = "Bullish" if df['MACD'].iloc[-1] > df['MACD_Signal'].iloc[-1] else "Bearish"
 
-    # 3. Bollinger Bands (Manual calculation)
+    # 3. Bollinger Bands (Manual Calculation)
     df['SMA_20'] = df['Close'].rolling(window=20).mean()
     df['STD_20'] = df['Close'].rolling(window=20).std()
     df['BBL'] = df['SMA_20'] - (2 * df['STD_20'])
