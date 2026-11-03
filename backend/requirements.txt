@@ -4,3 +4,6 @@ pandas
 pandas_ta
 google-generativeai
 BinaryOptionsToolsV2
+numba
+llvmlite
+numpy
