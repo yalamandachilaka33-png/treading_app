@@ -27,7 +27,7 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(TFS[tf]);
   const [liveData, setLiveData] = useState({ price: 0, volume: 0 });
 
-  // 1. Timer Sync (Real Market Time)
+  // 1. Timer Sync
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -40,7 +40,7 @@ function App() {
     return () => clearInterval(interval);
   }, [tf]);
 
-  // 2. WebSocket for Live Price & Volume
+  // 2. WebSocket for Live Price
   useEffect(() => {
     const ws = new WebSocket(`${WS_URL}?asset=${asset}`);
     ws.onmessage = (event) => {
@@ -71,7 +71,6 @@ function App() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Calculate exact entry time in IST
   const getEntryTime = () => {
     const now = new Date();
     const nextCandle = new Date(now.getTime() + (timeLeft * 1000));
@@ -100,7 +99,7 @@ function App() {
 
       <main className="p-4 max-w-md mx-auto space-y-6 mt-4">
         
-        {/* Live Price & Volume */}
+        {/* Live Price */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex justify-between items-center">
           <div>
             <div className="text-xs text-gray-400 mb-1">LIVE PRICE ({asset})</div>
@@ -112,7 +111,7 @@ function App() {
           </div>
         </div>
 
-        {/* Asset & Timeframe Selection */}
+        {/* Asset & Timeframe */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg space-y-4">
           <select value={asset} onChange={(e) => setAsset(e.target.value)} className="bg-gray-900 text-neonblue font-bold text-lg p-2 rounded border border-gray-600 outline-none w-full">
             {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -128,7 +127,6 @@ function App() {
 
         {/* Signal Generator */}
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg text-center relative overflow-hidden">
-          
           <button 
             onClick={generateSignal} 
             disabled={loading} 
@@ -159,7 +157,6 @@ function App() {
               </div>
               <p className="text-sm mb-4">{res.reason}</p>
               
-              {/* Entry Time & Duration inside Signal Box */}
               <div className="bg-black/40 p-3 rounded-lg mb-3 flex justify-between items-center border border-current/30">
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">Entry Time</div>
@@ -167,7 +164,6 @@ function App() {
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-gray-400 uppercase tracking-wider">Duration</div>
-                  {/* ఇక్కడ సెకన్ల బదులు మీరు సెలెక్ట్ చేసిన టైమ్ ఫ్రేమ్ (ఉదా: 1m, 3m) వస్తుంది */}
                   <div className="text-lg font-mono text-white font-bold uppercase">{tf}</div>
                 </div>
               </div>
@@ -175,14 +171,14 @@ function App() {
               <div className="grid grid-cols-2 gap-2 text-xs text-left bg-black/30 p-2 rounded">
                 <div>RSI: {res.indicators?.RSI}</div>
                 <div>MACD: {res.indicators?.MACD_Trend}</div>
-                <div>State: {res.indicators?.Market_State}</div>
-                <div>Wick: {res.indicators?.Candle_Wicks}</div>
+                <div>Struct: {res.indicators?.Structure_Tags}</div>
+                <div>Pattern: {res.indicators?.Candle_Wicks}</div>
               </div>
             </div>
           )}
         </div>
 
-        {/* High Payout Scanner Section */}
+        {/* Scanner */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🔥 Top High Payout Pairs</h2>
@@ -204,7 +200,6 @@ function App() {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-gray-500 text-center mt-3">Click on a pair to select and analyze.</p>
         </div>
 
       </main>
