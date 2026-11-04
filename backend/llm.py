@@ -6,7 +6,7 @@ def decide(asset, tf, data):
     if "error" in data:
         return {"signal": "NEUTRAL", "reason": "Not enough data to analyze."}
 
-    # Initialize Groq client using the OpenAI SDK format
+    # Initialize Groq client
     client = OpenAI(
         api_key=GROQ_API_KEY,
         base_url="https://api.groq.com/openai/v1"
@@ -31,8 +31,8 @@ def decide(asset, tf, data):
     """
 
     try:
-        response = "llama-3.1-8b-instant" client.chat.completions.create(
-            model=, # Groq's fast and free model
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "You are a helpful trading assistant that only outputs JSON."},
                 {"role": "user", "content": prompt_text}
