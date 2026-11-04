@@ -6,7 +6,7 @@ def decide(asset, tf, data):
     if "error" in data:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Not enough data."}
 
-    # --- 1. STRICT PYTHON RULE ENGINE ---
+    # --- 1. STRICT PYTHON RULE ENGINE (Safe gets to avoid errors) ---
     macd = data.get('MACD_Trend', 'Unknown')
     price_vs_sma = data.get('Price_vs_SMA', 'Unknown')
     rsi = data.get('RSI', 50)
@@ -14,13 +14,11 @@ def decide(asset, tf, data):
     
     allowed_direction = None
 
-    # Trend Following Rules
     if macd == "Bullish" and price_vs_sma == "Above":
         allowed_direction = "CALL"
     elif macd == "Bearish" and price_vs_sma == "Below":
         allowed_direction = "PUT"
     
-    # Filter: Avoid buying at Resistance or selling at Support (Safe get method)
     dist_to_res = data.get('Distance_to_Resistance', 999)
     dist_to_sup = data.get('Distance_to_Support', 999)
     
@@ -32,13 +30,11 @@ def decide(asset, tf, data):
     if allowed_direction == "PUT" and near_support:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Blocked: Downtrend but price is at Support."}
 
-    # Filter: Block if Reversal or Sideways is detected
     if data.get('Market_State') == "Sideways / Choppy":
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Blocked: Market is Sideways."}
     if data.get('Reversal_Status') != "None":
-        return {"signal": "NEUTRAL", "confidence": 0, "reason": f"Blocked: {data['Reversal_Status']} detected."}
+        return {"signal": "NEUTRAL", "confidence": 0, "reason": f"Blocked: {data.get('Reversal_Status')} detected."}
 
-    # Filter: RSI Extremes
     if rsi > 75: allowed_direction = "PUT"
     if rsi < 25: allowed_direction = "CALL"
 
