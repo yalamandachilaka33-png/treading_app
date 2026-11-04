@@ -27,7 +27,7 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(TFS[tf]);
   const [liveData, setLiveData] = useState({ price: 0, volume: 0 });
 
-  // 1. Timer Sync
+  // 1. Timer Sync (Real Market Time)
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -40,7 +40,7 @@ function App() {
     return () => clearInterval(interval);
   }, [tf]);
 
-  // 2. WebSocket for Live Price
+  // 2. WebSocket for Live Price & Volume
   useEffect(() => {
     const ws = new WebSocket(`${WS_URL}?asset=${asset}`);
     ws.onmessage = (event) => {
@@ -71,6 +71,7 @@ function App() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  // Calculate exact entry time in IST
   const getEntryTime = () => {
     const now = new Date();
     const nextCandle = new Date(now.getTime() + (timeLeft * 1000));
@@ -99,7 +100,7 @@ function App() {
 
       <main className="p-4 max-w-md mx-auto space-y-6 mt-4">
         
-        {/* Live Price */}
+        {/* Live Price & Volume */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex justify-between items-center">
           <div>
             <div className="text-xs text-gray-400 mb-1">LIVE PRICE ({asset})</div>
@@ -111,7 +112,7 @@ function App() {
           </div>
         </div>
 
-        {/* Asset & Timeframe */}
+        {/* Asset & Timeframe Selection */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg space-y-4">
           <select value={asset} onChange={(e) => setAsset(e.target.value)} className="bg-gray-900 text-neonblue font-bold text-lg p-2 rounded border border-gray-600 outline-none w-full">
             {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -127,6 +128,7 @@ function App() {
 
         {/* Signal Generator */}
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg text-center relative overflow-hidden">
+          
           <button 
             onClick={generateSignal} 
             disabled={loading} 
@@ -168,11 +170,14 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs text-left bg-black/30 p-2 rounded">
+              <div className="grid grid-cols-2 gap-2 text-xs text-left bg-black/30 p-2 rounded mb-2">
                 <div>RSI: {res.indicators?.RSI}</div>
                 <div>MACD: {res.indicators?.MACD_Trend}</div>
                 <div>Struct: {res.indicators?.Structure_Tags}</div>
                 <div>Pattern: {res.indicators?.Candle_Wicks}</div>
+              </div>
+              <div className="text-[10px] text-neonblue bg-black/20 p-2 rounded">
+                Fib: {res.indicators?.Fib_Level}
               </div>
             </div>
           )}
@@ -195,7 +200,7 @@ function App() {
                     : 'bg-gray-900 border-gray-600 hover:border-gray-400'
                 }`}
               >
-                <div className="text-sm font-bold text-white mb-1">{item.pair.replace('_otc', '')}</div>
+                <div className="text-sm font-bold text-white mb-1">{item.pair.replace('_otc', '_OTC')}</div>
                 <div className="text-xs text-neongreen font-mono">Payout: {item.payout}</div>
               </div>
             ))}
