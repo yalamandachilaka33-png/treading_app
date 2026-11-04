@@ -1,88 +1,60 @@
-import json
-from openai import OpenAI
-from config import GROQ_API_KEY
-
 def decide(asset, tf, data):
     if "error" in data:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Not enough data."}
 
-    # --- SCORING SYSTEM ---
+    macd = data.get('MACD_Trend', 'Neutral')
+    rsi = data.get('RSI', 50)
+    struct_tags = data.get('Structure_Tags', 'None')
+    wicks = data.get('Candle_Wicks', 'None')
+    fib = data.get('Fib_Level', 'None')
+    price_vs_sma = data.get('Price_vs_SMA', 'Above')
+
     score = 0
     reasons = []
     signal = "NEUTRAL"
 
-    macd = data.get('MACD_Trend', 'Neutral')
-    rsi = data.get('RSI', 50)
-    struct_tags = data.get('Structure_Tags', 'None')
-    fib = data.get('Fib_Level', 'None')
-    price_vs_sma = data.get('Price_vs_SMA', 'Above')
-
-    # 1. Trend & MACD (Max +30 / -30)
-    if macd == "Bullish" and price_vs_sma == "Above":
-        score += 30
+    # 1. MACD (+30)
+    if macd == "Bullish":
         signal = "CALL"
-        reasons.append("Bullish MACD & Price above SMA")
-    elif macd == "Bearish" and price_vs_sma == "Below":
         score += 30
+        reasons.append("Bullish MACD")
+    elif macd == "Bearish":
         signal = "PUT"
-        reasons.append("Bearish MACD & Price below SMA")
+        score += 30
+        reasons.append("Bearish MACD")
     else:
-        reasons.append("MACD/SMA mixed (Choppy)")
+        return {"signal": "NEUTRAL", "confidence": 0, "reason": "MACD neutral."}
 
-    # 2. RSI Filter (Max +20)
-    if signal == "CALL" and rsi < 40:
-        score += 20
-        reasons.append("RSI Oversold")
-    elif signal == "PUT" and rsi > 60:
-        score += 20
-        reasons.append("RSI Overbought")
-    elif (signal == "CALL" and rsi > 70) or (signal == "PUT" and rsi < 30):
-        score -= 20 # Divergence risk
-        reasons.append("RSI against trend (Risky)")
+    # 2. SMA (+10)
+    if signal == "CALL" and price_vs_sma == "Above": score += 10; reasons.append("Price>SMA")
+    elif signal == "PUT" and price_vs_sma == "Below": score += 10; reasons.append("Price<SMA")
 
-    # 3. Fibonacci Confirmation (Max +25)
-    if "Support" in fib and signal == "CALL":
-        score += 25
-        reasons.append("Price at Fib Support")
-    elif "Resistance" in fib and signal == "PUT":
-        score += 25
-        reasons.append("Price at Fib Resistance")
+    # 3. RSI (+15)
+    if signal == "CALL" and rsi < 45: score += 15; reasons.append("RSI Oversold")
+    elif signal == "PUT" and rsi > 55: score += 15; reasons.append("RSI Overbought")
 
-    # 4. Structure Confirmation (Max +25)
-    if signal == "CALL" and ("CHoCH Bullish" in struct_tags or "BOS Bullish" in struct_tags or "Double Bottom" in struct_tags):
-        score += 25
-        reasons.append("Bullish Structure Confirmed")
-    elif signal == "PUT" and ("CHoCH Bearish" in struct_tags or "BOS Bearish" in struct_tags or "Double Top" in struct_tags):
-        score += 25
-        reasons.append("Bearish Structure Confirmed")
+    # 4. Fib (+20)
+    if "Support" in fib and signal == "CALL": score += 20; reasons.append("Fib Support")
+    elif "Resistance" in fib and signal == "PUT": score += 20; reasons.append("Fib Resistance")
 
-    # --- FINAL DECISION ---
+    # 5. Structure (+15)
+    if signal == "CALL" and any(x in struct_tags for x in ["Bullish", "Bottom", "FVG"]): score += 15; reasons.append("Bullish Struct")
+    elif signal == "PUT" and any(x in struct_tags for x in ["Bearish", "Top", "FVG"]): score += 15; reasons.append("Bearish Struct")
+
+    # 6. Patterns (+15)
+    if signal == "CALL" and any(x in wicks for x in ["Hammer", "Bullish Engulfing", "Breakout Up"]): score += 15; reasons.append("Bullish Pattern")
+    elif signal == "PUT" and any(x in wicks for x in ["Shooting Star", "Bearish Engulfing", "Breakout Down"]): score += 15; reasons.append("Bearish Pattern")
+
+    score = max(0, min(score, 95))
+
     if score < 50:
-        return {"signal": "NEUTRAL", "confidence": score, "reason": f"Weak Setup: {', '.join(reasons)}"}
+        return {"signal": "NEUTRAL", "confidence": score, "reason": f"Weak: {', '.join(reasons)}"}
+
+    # Fast Reason Generation (No API Call)
+    final_reason = f"{signal} setup confirmed by: {', '.join(reasons)}."
     
-    # Ask LLM to write a nice summary
-    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
-    prompt_text = f"""
-    Based on technical data, the signal is {signal} with a score of {score}/100.
-    Reasons: {', '.join(reasons)}.
-    Write a short 1-sentence trading justification.
-    Output JSON: {{"reason": "your sentence here"}}
-    """
-
-    try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt_text}],
-            temperature=0.3,
-            response_format={"type": "json_object"}
-        )
-        llm_reason = json.loads(response.choices[0].message.content).get("reason", "Analysis complete.")
-        final_reason = f"{llm_reason} (Score: {score}/100)"
-    except:
-        final_reason = f"{', '.join(reasons)} (Score: {score}/100)"
-
     return {
         "signal": signal,
-        "confidence": min(score, 95), # Max 95%
-        "reason": final_reason
+        "confidence": score,
+        "reason": f"{final_reason} (Score: {score}/100)"
     }
