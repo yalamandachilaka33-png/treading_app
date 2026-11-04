@@ -6,10 +6,11 @@ def decide(asset, tf, data):
     if "error" in data:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Not enough data."}
 
-    # --- 1. STRICT PYTHON RULE ENGINE (Blocks Fake Signals) ---
-    macd = data['MACD_Trend']
+    # --- 1. STRICT PYTHON RULE ENGINE ---
+    macd = data.get('MACD_Trend', 'Unknown')
     price_vs_sma = data.get('Price_vs_SMA', 'Unknown')
-    rsi = data['RSI']
+    rsi = data.get('RSI', 50)
+    current_price = data.get('Current_Price', 0)
     
     allowed_direction = None
 
@@ -19,9 +20,12 @@ def decide(asset, tf, data):
     elif macd == "Bearish" and price_vs_sma == "Below":
         allowed_direction = "PUT"
     
-    # Filter: Avoid buying at Resistance or selling at Support
-    near_resistance = data['Distance_to_Resistance'] < (data['Current_Price'] * 0.0003)
-    near_support = data['Distance_to_Support'] < (data['Current_Price'] * 0.0003)
+    # Filter: Avoid buying at Resistance or selling at Support (Safe get method)
+    dist_to_res = data.get('Distance_to_Resistance', 999)
+    dist_to_sup = data.get('Distance_to_Support', 999)
+    
+    near_resistance = dist_to_res < (current_price * 0.0003)
+    near_support = dist_to_sup < (current_price * 0.0003)
 
     if allowed_direction == "CALL" and near_resistance:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Blocked: Uptrend but price is at Resistance."}
@@ -41,7 +45,7 @@ def decide(asset, tf, data):
     if not allowed_direction:
         return {"signal": "NEUTRAL", "confidence": 0, "reason": "Trend is not clear. Waiting for setup."}
 
-    # --- 2. LLM AS A CONFIRMER (Gives Confidence % and Reason) ---
+    # --- 2. LLM AS A CONFIRMER ---
     client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
 
     prompt_text = f"""
