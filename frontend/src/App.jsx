@@ -151,7 +151,11 @@ function App() {
             }`}>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-2xl font-black">{res.signal}</h3>
-                {res.strength && <span className="text-xs bg-black/40 px-2 py-1 rounded">{res.strength}</span>}
+                {res.confidence !== undefined && (
+                  <span className="text-sm font-bold bg-black/50 text-white px-3 py-1 rounded-full border border-current">
+                    {res.confidence}% Match
+                  </span>
+                )}
               </div>
               <p className="text-sm mb-3">{res.reason}</p>
               
