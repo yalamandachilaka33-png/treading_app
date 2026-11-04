@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 
 const API_URL = "https://treading-app-1.onrender.com"; 
+const WS_URL = "wss://treading-app-1.onrender.com/ws/live"; 
 
 const TFS = { "1m": 60, "2m": 120, "3m": 180, "5m": 300 };
 const PAIRS = [
   "EURUSD_otc", "GBPUSD_otc", "USDJPY_otc", "AUDUSD_otc", "USDCAD_otc",
   "USDCHF_otc", "NZDUSD_otc", "EURGBP_otc", "EURJPY_otc", "GBPJPY_otc",
   "AUDJPY_otc", "AUDCAD_otc", "CADJPY_otc", "CHFJPY_otc", "EURCHF_otc"
+];
+
+const SCANNER_PAIRS = [
+  { pair: "EURUSD_otc", payout: "92%" },
+  { pair: "GBPUSD_otc", payout: "95%" },
+  { pair: "USDJPY_otc", payout: "91%" },
+  { pair: "AUDCAD_otc", payout: "94%" },
 ];
 
 function App() {
@@ -16,29 +24,31 @@ function App() {
   const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
   
-  const [amount, setAmount] = useState(1);
-  const [duration, setDuration] = useState(60);
-  const [msg, setMsg] = useState("");
-  
   const [timeLeft, setTimeLeft] = useState(TFS[tf]);
+  const [liveData, setLiveData] = useState({ price: 0, volume: 0 });
 
-  // Live Market Time Sync
+  // 1. Timer Sync (Real Market Time)
   useEffect(() => {
-    setDuration(TFS[tf]);
-
     const tick = () => {
       const now = new Date();
       const currentSeconds = now.getUTCSeconds() + (now.getUTCMinutes() * 60) + (now.getUTCHours() * 3600);
       const tfSeconds = TFS[tf];
-      
-      const secondsToNext = tfSeconds - (currentSeconds % tfSeconds);
-      setTimeLeft(secondsToNext);
+      setTimeLeft(tfSeconds - (currentSeconds % tfSeconds));
     };
-
     tick(); 
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [tf]);
+
+  // 2. WebSocket for Live Price & Volume
+  useEffect(() => {
+    const ws = new WebSocket(`${WS_URL}?asset=${asset}`);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setLiveData({ price: data.price, volume: data.volume });
+    };
+    return () => ws.close(); 
+  }, [asset]);
 
   const generateSignal = async () => {
     setLoading(true);
@@ -55,20 +65,6 @@ function App() {
     setLoading(false);
   };
 
-  const placeTrade = async (direction) => {
-    try {
-      setMsg(`Placing ${direction.toUpperCase()} trade...`);
-      const response = await fetch(`${API_URL}/api/trade?asset=${asset}&direction=${direction}&amount=${amount}&duration=${duration}`, {
-        method: 'POST'
-      });
-      if (!response.ok) throw new Error("Trade failed");
-      setMsg(`✅ ${direction.toUpperCase()} trade placed!`);
-      setTimeout(() => setMsg(""), 3000);
-    } catch (error) {
-      setMsg(`❌ Error: ${error.message}`);
-    }
-  };
-
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -79,13 +75,9 @@ function App() {
   const getEntryTime = () => {
     const now = new Date();
     const nextCandle = new Date(now.getTime() + (timeLeft * 1000));
-    
-    return nextCandle.toLocaleTimeString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    return nextCandle.toLocaleTimeString('en-IN', { 
+      timeZone: 'Asia/Kolkata', hour12: false, 
+      hour: '2-digit', minute: '2-digit', second: '2-digit' 
     }) + ' IST';
   };
 
@@ -108,20 +100,23 @@ function App() {
 
       <main className="p-4 max-w-md mx-auto space-y-6 mt-4">
         
-        {/* Asset Selection */}
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <label className="text-xs text-gray-400 mb-1 block">TRADING ASSET</label>
-          <div className="flex justify-between items-center">
-            <select value={asset} onChange={(e) => setAsset(e.target.value)} className="bg-gray-900 text-neonblue font-bold text-lg p-2 rounded border border-gray-600 outline-none w-full">
-              {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <span className="ml-2 bg-green-900/50 text-neongreen text-xs px-2 py-1 rounded border border-neongreen/30">+92%</span>
+        {/* Live Price & Volume */}
+        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex justify-between items-center">
+          <div>
+            <div className="text-xs text-gray-400 mb-1">LIVE PRICE ({asset})</div>
+            <div className="text-3xl font-black text-white font-mono">{liveData.price || "..."}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-gray-400 mb-1">TICK VOLUME</div>
+            <div className="text-xl font-bold text-neonblue">{liveData.volume || "0"}</div>
           </div>
         </div>
 
-        {/* Timeframes */}
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <label className="text-xs text-gray-400 mb-2 block">EXECUTION TIMEFRAME</label>
+        {/* Asset & Timeframe Selection */}
+        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg space-y-4">
+          <select value={asset} onChange={(e) => setAsset(e.target.value)} className="bg-gray-900 text-neonblue font-bold text-lg p-2 rounded border border-gray-600 outline-none w-full">
+            {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
           <div className="flex gap-2">
             {Object.keys(TFS).map(t => (
               <button key={t} onClick={() => setTf(t)} className={`flex-1 py-2 rounded-full font-bold transition-all ${tf === t ? 'bg-neonblue text-black shadow-[0_0_10px_#00f3ff]' : 'bg-gray-700 text-gray-300'}`}>
@@ -131,14 +126,19 @@ function App() {
           </div>
         </div>
 
-        {/* Signal Generator Card */}
+        {/* Signal Generator */}
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg text-center relative overflow-hidden">
-          {timeLeft <= 30 && <div className="absolute inset-0 border-4 border-neonred animate-pulse rounded-xl pointer-events-none"></div>}
           
-          <h2 className="text-lg font-bold mb-4">AI Technical Analysis</h2>
-          
-          <button onClick={generateSignal} disabled={loading} className="w-full bg-gradient-to-r from-neonblue to-blue-600 text-white font-bold py-3 px-4 rounded-full shadow-[0_0_15px_#00f3ff] disabled:opacity-50 flex justify-center items-center gap-2 mb-4">
-            {loading ? "Analyzing Market..." : "✨ Generate AI Signal"}
+          <button 
+            onClick={generateSignal} 
+            disabled={loading} 
+            className={`w-full text-white font-bold py-3 px-4 rounded-full mb-4 transition-all duration-300 ${
+              timeLeft <= 30 
+                ? 'bg-gradient-to-r from-neonred to-red-600 shadow-[0_0_20px_#ff3131] animate-pulse' 
+                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            } ${loading ? 'opacity-50' : ''}`}
+          >
+            {loading ? "Analyzing Market..." : (timeLeft <= 30 ? "🚨 GET SIGNAL NOW (30s Left)" : "Wait for 30s mark to Analyze")}
           </button>
 
           {err && <p className="text-neonred text-sm">{err}</p>}
@@ -157,46 +157,54 @@ function App() {
                   </span>
                 )}
               </div>
-              <p className="text-sm mb-3">{res.reason}</p>
+              <p className="text-sm mb-4">{res.reason}</p>
               
-              <div className="bg-black/30 p-2 rounded mb-3 flex justify-between items-center">
-                <div className="text-xs text-gray-400">Exact Entry Time:</div>
-                <div className="text-lg font-mono text-white">{getEntryTime()}</div>
+              {/* Entry Time & Duration inside Signal Box */}
+              <div className="bg-black/40 p-3 rounded-lg mb-3 flex justify-between items-center border border-current/30">
+                <div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">Entry Time</div>
+                  <div className="text-lg font-mono text-white font-bold">{getEntryTime()}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">Duration</div>
+                  {/* ఇక్కడ సెకన్ల బదులు మీరు సెలెక్ట్ చేసిన టైమ్ ఫ్రేమ్ (ఉదా: 1m, 3m) వస్తుంది */}
+                  <div className="text-lg font-mono text-white font-bold uppercase">{tf}</div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs text-left bg-black/30 p-2 rounded">
                 <div>RSI: {res.indicators?.RSI}</div>
                 <div>MACD: {res.indicators?.MACD_Trend}</div>
-                <div>Trend: {res.indicators?.BB_Status}</div>
-                <div>Pattern: {res.indicators?.Candle_Pattern}</div>
+                <div>State: {res.indicators?.Market_State}</div>
+                <div>Wick: {res.indicators?.Candle_Wicks}</div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Manual Trading Panel */}
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs text-gray-400">Amount ($)</label>
-              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-gray-900 p-2 rounded border border-gray-600 text-center font-bold" />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-gray-400">Duration (Sec)</label>
-              <input type="number" value={duration} readOnly className="w-full bg-gray-900 p-2 rounded border border-gray-600 text-center font-bold text-gray-500 cursor-not-allowed" />
-            </div>
+        {/* High Payout Scanner Section */}
+        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🔥 Top High Payout Pairs</h2>
+            <span className="text-xs text-neongreen border border-neongreen px-2 py-0.5 rounded-full">Live</span>
           </div>
-          
-          {msg && <p className="text-center text-sm font-bold text-neonblue animate-pulse">{msg}</p>}
-
-          <div className="flex gap-2">
-            <button onClick={() => placeTrade('call')} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold text-xl py-4 rounded-lg shadow-[0_0_10px_#39ff14] transition">
-              CALL ⬆
-            </button>
-            <button onClick={() => placeTrade('put')} className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-xl py-4 rounded-lg shadow-[0_0_10px_#ff3131] transition">
-              PUT ⬇
-            </button>
+          <div className="grid grid-cols-2 gap-3">
+            {SCANNER_PAIRS.map((item, index) => (
+              <div 
+                key={index} 
+                onClick={() => setAsset(item.pair)}
+                className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                  asset === item.pair 
+                    ? 'bg-neonblue/10 border-neonblue shadow-[0_0_10px_rgba(0,243,255,0.3)]' 
+                    : 'bg-gray-900 border-gray-600 hover:border-gray-400'
+                }`}
+              >
+                <div className="text-sm font-bold text-white mb-1">{item.pair.replace('_otc', '')}</div>
+                <div className="text-xs text-neongreen font-mono">Payout: {item.payout}</div>
+              </div>
+            ))}
           </div>
+          <p className="text-[10px] text-gray-500 text-center mt-3">Click on a pair to select and analyze.</p>
         </div>
 
       </main>
