@@ -22,22 +22,20 @@ function App() {
   
   const [timeLeft, setTimeLeft] = useState(TFS[tf]);
 
-  // Live Market Time Sync (UTC)
+  // Live Market Time Sync
   useEffect(() => {
-    setDuration(TFS[tf]); // Update trade duration based on selected timeframe
+    setDuration(TFS[tf]);
 
     const tick = () => {
       const now = new Date();
-      // Use UTC time to sync with the broker's server
       const currentSeconds = now.getUTCSeconds() + (now.getUTCMinutes() * 60) + (now.getUTCHours() * 3600);
       const tfSeconds = TFS[tf];
       
-      // Calculate exact seconds remaining for the current candle to close
       const secondsToNext = tfSeconds - (currentSeconds % tfSeconds);
       setTimeLeft(secondsToNext);
     };
 
-    tick(); // Run immediately on load
+    tick(); 
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [tf]);
@@ -77,16 +75,18 @@ function App() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Calculate exact entry time based on UTC and time left
+  // Calculate exact entry time in IST
   const getEntryTime = () => {
     const now = new Date();
     const nextCandle = new Date(now.getTime() + (timeLeft * 1000));
     
-    // Format as HH:MM:SS UTC
-    const hours = String(nextCandle.getUTCHours()).padStart(2, '0');
-    const minutes = String(nextCandle.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(nextCandle.getUTCSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds} UTC`;
+    return nextCandle.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }) + ' IST';
   };
 
   return (
