@@ -31,8 +31,8 @@ def decide(asset, tf, data):
     """
 
     try:
-        response = client.chat.completions.create(
-            model="llama3-8b-8192", # Groq's fast and free model
+        response = "llama-3.1-8b-instant" client.chat.completions.create(
+            model=, # Groq's fast and free model
             messages=[
                 {"role": "system", "content": "You are a helpful trading assistant that only outputs JSON."},
                 {"role": "user", "content": prompt_text}
