@@ -10,13 +10,6 @@ const PAIRS = [
   "AUDJPY_otc", "AUDCAD_otc", "CADJPY_otc", "CHFJPY_otc", "EURCHF_otc"
 ];
 
-const SCANNER_PAIRS = [
-  { pair: "EURUSD_otc", payout: "92%" },
-  { pair: "GBPUSD_otc", payout: "95%" },
-  { pair: "USDJPY_otc", payout: "91%" },
-  { pair: "AUDCAD_otc", payout: "94%" },
-];
-
 function App() {
   const [asset, setAsset] = useState(PAIRS[0]);
   const [tf, setTf] = useState("1m");
@@ -26,8 +19,12 @@ function App() {
   
   const [timeLeft, setTimeLeft] = useState(TFS[tf]);
   const [liveData, setLiveData] = useState({ price: 0, volume: 0 });
+  
+  // Dynamic Scanner States
+  const [scannedPairs, setScannedPairs] = useState([]);
+  const [scanLoading, setScanLoading] = useState(true);
 
-  // 1. Timer Sync (Real Market Time)
+  // 1. Timer Sync
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -40,7 +37,7 @@ function App() {
     return () => clearInterval(interval);
   }, [tf]);
 
-  // 2. WebSocket for Live Price & Volume
+  // 2. WebSocket for Live Price
   useEffect(() => {
     const ws = new WebSocket(`${WS_URL}?asset=${asset}`);
     ws.onmessage = (event) => {
@@ -49,6 +46,28 @@ function App() {
     };
     return () => ws.close(); 
   }, [asset]);
+
+  // 3. Fetch Live Scanner Data (Top 6 Pairs)
+  const fetchScanner = async () => {
+    setScanLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/scanner`);
+      if (response.ok) {
+        const data = await response.json();
+        setScannedPairs(data);
+      }
+    } catch (error) {
+      console.log("Scanner error:", error);
+    }
+    setScanLoading(false);
+  };
+
+  // 4. Run Scanner on load & every 3 minutes
+  useEffect(() => {
+    fetchScanner();
+    const interval = setInterval(fetchScanner, 180000); 
+    return () => clearInterval(interval);
+  }, []);
 
   const generateSignal = async () => {
     setLoading(true);
@@ -71,7 +90,6 @@ function App() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Calculate exact entry time in IST
   const getEntryTime = () => {
     const now = new Date();
     const nextCandle = new Date(now.getTime() + (timeLeft * 1000));
@@ -100,7 +118,7 @@ function App() {
 
       <main className="p-4 max-w-md mx-auto space-y-6 mt-4">
         
-        {/* Live Price & Volume */}
+        {/* Live Price */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex justify-between items-center">
           <div>
             <div className="text-xs text-gray-400 mb-1">LIVE PRICE ({asset})</div>
@@ -112,7 +130,7 @@ function App() {
           </div>
         </div>
 
-        {/* Asset & Timeframe Selection */}
+        {/* Asset & Timeframe */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg space-y-4">
           <select value={asset} onChange={(e) => setAsset(e.target.value)} className="bg-gray-900 text-neonblue font-bold text-lg p-2 rounded border border-gray-600 outline-none w-full">
             {PAIRS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -128,7 +146,6 @@ function App() {
 
         {/* Signal Generator */}
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg text-center relative overflow-hidden">
-          
           <button 
             onClick={generateSignal} 
             disabled={loading} 
@@ -183,28 +200,40 @@ function App() {
           )}
         </div>
 
-        {/* Scanner */}
+        {/* Live Dynamic Scanner (List Format) */}
         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🔥 Top High Payout Pairs</h2>
-            <span className="text-xs text-neongreen border border-neongreen px-2 py-0.5 rounded-full">Live</span>
+            <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🔥 Top Live Signals (Auto Scan)</h2>
+            <button onClick={fetchScanner} className="text-xs text-neonblue border border-neonblue px-2 py-0.5 rounded-full hover:bg-neonblue hover:text-black transition">
+              Refresh
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {SCANNER_PAIRS.map((item, index) => (
-              <div 
-                key={index} 
-                onClick={() => setAsset(item.pair)}
-                className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                  asset === item.pair 
-                    ? 'bg-neonblue/10 border-neonblue shadow-[0_0_10px_rgba(0,243,255,0.3)]' 
-                    : 'bg-gray-900 border-gray-600 hover:border-gray-400'
-                }`}
-              >
-                <div className="text-sm font-bold text-white mb-1">{item.pair.replace('_otc', '_OTC')}</div>
-                <div className="text-xs text-neongreen font-mono">Payout: {item.payout}</div>
-              </div>
-            ))}
-          </div>
+          
+          {scanLoading ? (
+            <p className="text-center text-sm text-gray-400 py-4 animate-pulse">Scanning 15 pairs for best signals...</p>
+          ) : scannedPairs.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-4">No strong signals right now. Market is Choppy.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {scannedPairs.map((item, index) => (
+                <div 
+                  key={index} 
+                  onClick={() => setAsset(item.pair)}
+                  className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition-all ${
+                    asset === item.pair 
+                      ? 'bg-neonblue/10 border-neonblue shadow-[0_0_10px_rgba(0,243,255,0.3)]' 
+                      : 'bg-gray-900 border-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-white">{item.pair.replace('_otc', '_OTC')}</div>
+                  <div className={`text-sm font-mono font-bold ${item.signal === 'CALL' ? 'text-neongreen' : 'text-neonred'}`}>
+                    {item.signal} ({item.confidence}%)
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-gray-500 text-center mt-3">Click on a pair to select and analyze.</p>
         </div>
 
       </main>
