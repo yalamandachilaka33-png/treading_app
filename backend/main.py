@@ -74,7 +74,9 @@ async def scanner():
     results = []
     
     # అన్ని 15 పెయిర్స్ ని చెక్ చేయడం
-    for pair in PAIRS:
+    import asyncio
+for pair in PAIRS:
+    await asyncio.sleep(0.3) # సర్వర్ ఓవర్ లోడ్ అవ్వకుండా చిన్న బ్రేక్
         try:
             # వేగం కోసం 1 నిమిషం (60) క్యాండిల్స్ తీసుకుంటున్నాం
             raw = await api.get_candles(pair, period=60, count=100)
